@@ -82,11 +82,11 @@ int re_matchp(re_t pattern, const char* text, int* matchlength)
   {
     if (pattern[0].type == BEGIN)
     {
-      return ((matchpattern(&pattern[1], text, matchlength)) ? 0 : -1);
+      return ((matchpattern(&pattern[1], text, matchlength)) ? 0 : RE_NO_MATCH_INDEX);
     }
     else
     {
-      int idx = -1;
+      int idx = RE_NO_MATCH_INDEX;
 
       do
       {
@@ -95,7 +95,7 @@ int re_matchp(re_t pattern, const char* text, int* matchlength)
         if (matchpattern(pattern, text, matchlength))
         {
           if (text[0] == '\0')
-            return -1;
+            return RE_NO_MATCH_INDEX;
 
           return idx;
         }
@@ -103,7 +103,7 @@ int re_matchp(re_t pattern, const char* text, int* matchlength)
       while (*text++ != '\0');
     }
   }
-  return -1;
+  return RE_NO_MATCH_INDEX;
 }
 
 re_t re_compile(const char* pattern)

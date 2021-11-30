@@ -40,7 +40,7 @@
 extern "C"{
 #endif
 
-
+#define RE_NO_MATCH_INDEX (-1)
 
 /* Typedef'd pointer to get abstract datatype. */
 typedef struct regex_t* re_t;
