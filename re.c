@@ -54,10 +54,10 @@ typedef struct regex_t
 
 
 /* Private function declarations: */
-static int matchpattern(regex_t* pattern, const char* text, int* matchlength);
+static int matchpattern(regex_t* pattern, const char* text, int maxlength, int* matchlength);
 static int matchcharclass(char c, const char* str);
-static int matchstar(regex_t p, regex_t* pattern, const char* text, int* matchlength);
-static int matchplus(regex_t p, regex_t* pattern, const char* text, int* matchlength);
+static int matchstar(regex_t p, regex_t* pattern, const char* text, int maxlength, int* matchlength);
+static int matchplus(regex_t p, regex_t* pattern, const char* text, int maxlength, int* matchlength);
 static int matchone(regex_t p, char c);
 static int matchdigit(char c);
 static int matchalpha(char c);
@@ -70,37 +70,37 @@ static int ismetachar(char c);
 
 
 /* Public functions: */
-int re_match(const char* pattern, const char* text, int* matchlength)
+int re_match(const char* pattern, const char* text, int maxlength, int* matchlength)
 {
-  return re_matchp(re_compile(pattern), text, matchlength);
+  return re_matchp(re_compile(pattern), text, maxlength, matchlength);
 }
 
-int re_matchp(re_t pattern, const char* text, int* matchlength)
+int re_matchp(re_t pattern, const char* text, int maxlength, int* matchlength)
 {
   *matchlength = 0;
   if (pattern != 0)
   {
     if (pattern[0].type == BEGIN)
     {
-      return ((matchpattern(&pattern[1], text, matchlength)) ? 0 : RE_NO_MATCH_INDEX);
+      return ((matchpattern(&pattern[1], text, maxlength, matchlength)) ? 0 : RE_NO_MATCH_INDEX);
     }
     else
     {
-      int idx = RE_NO_MATCH_INDEX;
+      int idx = -1;
 
       do
       {
         idx += 1;
 
-        if (matchpattern(pattern, text, matchlength))
+        if (matchpattern(pattern, text, maxlength, matchlength))
         {
-          if (text[0] == '\0')
+          if ((maxlength == 0) || (text[0] == '\0'))
             return RE_NO_MATCH_INDEX;
 
           return idx;
         }
       }
-      while (*text++ != '\0');
+      while ((maxlength-- > 0) && (*text++ != '\0'));
     }
   }
   return RE_NO_MATCH_INDEX;
@@ -397,18 +397,19 @@ static int matchone(regex_t p, char c)
   }
 }
 
-static int matchstar(regex_t p, regex_t* pattern, const char* text, int* matchlength)
+static int matchstar(regex_t p, regex_t* pattern, const char* text, int maxlength, int* matchlength)
 {
   int prelen = *matchlength;
   const char* prepoint = text;
-  while ((text[0] != '\0') && matchone(p, *text))
+  while ((maxlength > 0) && (text[0] != '\0') && matchone(p, *text))
   {
+    maxlength--;
     text++;
     (*matchlength)++;
   }
   while (text >= prepoint)
   {
-    if (matchpattern(pattern, text--, matchlength))
+    if (matchpattern(pattern, text--, maxlength++, matchlength))
       return 1;
     (*matchlength)--;
   }
@@ -417,17 +418,18 @@ static int matchstar(regex_t p, regex_t* pattern, const char* text, int* matchle
   return 0;
 }
 
-static int matchplus(regex_t p, regex_t* pattern, const char* text, int* matchlength)
+static int matchplus(regex_t p, regex_t* pattern, const char* text, int maxlength, int* matchlength)
 {
   const char* prepoint = text;
-  while ((text[0] != '\0') && matchone(p, *text))
+  while ((maxlength > 0) && (text[0] != '\0') && matchone(p, *text))
   {
+    maxlength--;
     text++;
     (*matchlength)++;
   }
   while (text > prepoint)
   {
-    if (matchpattern(pattern, text--, matchlength))
+    if (matchpattern(pattern, text--, maxlength++, matchlength))
       return 1;
     (*matchlength)--;
   }
@@ -435,15 +437,15 @@ static int matchplus(regex_t p, regex_t* pattern, const char* text, int* matchle
   return 0;
 }
 
-static int matchquestion(regex_t p, regex_t* pattern, const char* text, int* matchlength)
+static int matchquestion(regex_t p, regex_t* pattern, const char* text, int maxlength, int* matchlength)
 {
   if (p.type == UNUSED)
     return 1;
-  if (matchpattern(pattern, text, matchlength))
+  if (matchpattern(pattern, text, maxlength, matchlength))
       return 1;
-  if (*text && matchone(p, *text++))
+  if ((maxlength-- > 0) && *text && matchone(p, *text++))
   {
-    if (matchpattern(pattern, text, matchlength))
+    if (matchpattern(pattern, text, maxlength, matchlength))
     {
       (*matchlength)++;
       return 1;
@@ -475,7 +477,7 @@ static int matchpattern(regex_t* pattern, const char* text, int *matchlength)
   {
     return text[0] == '\0';
   }
-  else if ((text[0] != '\0') && matchone(pattern[0], text[0]))
+  else if ((maxlength > 0) && (text[0] != '\0') && matchone(pattern[0], text[0]))
   {
     (*matchlength)++;
     return matchpattern(&pattern[1], text+1);
@@ -490,26 +492,26 @@ static int matchpattern(regex_t* pattern, const char* text, int *matchlength)
 #else
 
 /* Iterative matching */
-static int matchpattern(regex_t* pattern, const char* text, int* matchlength)
+static int matchpattern(regex_t* pattern, const char* text, int maxlength, int* matchlength)
 {
   int pre = *matchlength;
   do
   {
     if ((pattern[0].type == UNUSED) || (pattern[1].type == QUESTIONMARK))
     {
-      return matchquestion(pattern[0], &pattern[2], text, matchlength);
+      return matchquestion(pattern[0], &pattern[2], text, maxlength, matchlength);
     }
     else if (pattern[1].type == STAR)
     {
-      return matchstar(pattern[0], &pattern[2], text, matchlength);
+      return matchstar(pattern[0], &pattern[2], text, maxlength, matchlength);
     }
     else if (pattern[1].type == PLUS)
     {
-      return matchplus(pattern[0], &pattern[2], text, matchlength);
+      return matchplus(pattern[0], &pattern[2], text, maxlength, matchlength);
     }
     else if ((pattern[0].type == END) && pattern[1].type == UNUSED)
     {
-      return (text[0] == '\0');
+      return (maxlength == 0) || (text[0] == '\0');
     }
 /*  Branching is not working properly
     else if (pattern[1].type == BRANCH)
@@ -517,9 +519,9 @@ static int matchpattern(regex_t* pattern, const char* text, int* matchlength)
       return (matchpattern(pattern, text) || matchpattern(&pattern[2], text));
     }
 */
-  (*matchlength)++;
+    (*matchlength)++;
   }
-  while ((text[0] != '\0') && matchone(*pattern++, *text++));
+  while ((maxlength > 0) && (text[0] != '\0') && matchone(*pattern++, *text++));
 
   *matchlength = pre;
   return 0;
