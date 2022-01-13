@@ -35,8 +35,8 @@
 
 /* Definitions: */
 
-#define MAX_REGEXP_OBJECTS      30    /* Max number of regex symbols in expression. */
-#define MAX_CHAR_CLASS_LEN      40    /* Max length of character-class buffer in.   */
+#define MAX_REGEXP_OBJECTS      30ul    /* Max number of regex symbols in expression. */
+#define MAX_CHAR_CLASS_LEN      40ul    /* Max length of character-class buffer in.   */
 
 
 enum { UNUSED, DOT, BEGIN, END, QUESTIONMARK, STAR, PLUS, CHAR, CHAR_CLASS, INV_CHAR_CLASS, DIGIT, NOT_DIGIT, ALPHA, NOT_ALPHA, WHITESPACE, NOT_WHITESPACE, /* BRANCH */ };
@@ -113,11 +113,11 @@ re_t re_compile(const char* pattern)
      MAX_CHAR_CLASS_LEN determines the size of buffer for chars in all char-classes in the expression. */
   static regex_t re_compiled[MAX_REGEXP_OBJECTS];
   static unsigned char ccl_buf[MAX_CHAR_CLASS_LEN];
-  int ccl_bufidx = 1;
+  unsigned int ccl_bufidx = 1;
 
   char c;     /* current char in pattern   */
-  int i = 0;  /* index into pattern        */
-  int j = 0;  /* index into re_compiled    */
+  unsigned int i = 0;  /* index into pattern        */
+  unsigned int j = 0;  /* index into re_compiled    */
 
   while (pattern[i] != '\0' && (j+1 < MAX_REGEXP_OBJECTS))
   {
@@ -156,7 +156,7 @@ re_t re_compile(const char* pattern)
             default:
             {
               re_compiled[j].type = CHAR;
-              re_compiled[j].u.ch = pattern[i];
+              re_compiled[j].u.ch = (unsigned char)pattern[i];
             } break;
           }
         }
@@ -174,7 +174,7 @@ re_t re_compile(const char* pattern)
       case '[':
       {
         /* Remember where the char-buffer starts. */
-        int buf_begin = ccl_bufidx;
+        unsigned int buf_begin = ccl_bufidx;
 
         /* Look-ahead to determine if negated */
         if (pattern[i+1] == '^')
@@ -206,14 +206,14 @@ re_t re_compile(const char* pattern)
             {
               return 0;
             }
-            ccl_buf[ccl_bufidx++] = pattern[i++];
+            ccl_buf[ccl_bufidx++] = (unsigned char)pattern[i++];
           }
           else if (ccl_bufidx >= MAX_CHAR_CLASS_LEN)
           {
               //fputs("exceeded internal buffer!\n", stderr);
               return 0;
           }
-          ccl_buf[ccl_bufidx++] = pattern[i];
+          ccl_buf[ccl_bufidx++] = (unsigned char)pattern[i];
         }
         if (ccl_bufidx >= MAX_CHAR_CLASS_LEN)
         {
@@ -230,7 +230,7 @@ re_t re_compile(const char* pattern)
       default:
       {
         re_compiled[j].type = CHAR;
-        re_compiled[j].u.ch = c;
+        re_compiled[j].u.ch = (unsigned char)c;
       } break;
     }
     /* no buffer-out-of-bounds access on invalid patterns - see https://github.com/kokke/tiny-regex-c/commit/1a279e04014b70b0695fba559a7c05d55e6ee90b */
@@ -245,15 +245,15 @@ re_t re_compile(const char* pattern)
   /* 'UNUSED' is a sentinel used to indicate end-of-pattern */
   re_compiled[j].type = UNUSED;
 
-  return (re_t) re_compiled;
+  return re_compiled;
 }
 
-void re_print(regex_t* pattern)
+void re_print(re_t pattern)
 {
   const char* types[] = { "UNUSED", "DOT", "BEGIN", "END", "QUESTIONMARK", "STAR", "PLUS", "CHAR", "CHAR_CLASS", "INV_CHAR_CLASS", "DIGIT", "NOT_DIGIT", "ALPHA", "NOT_ALPHA", "WHITESPACE", "NOT_WHITESPACE", "BRANCH" };
 
-  int i;
-  int j;
+  unsigned int i;
+  unsigned int j;
   char c;
   for (i = 0; i < MAX_REGEXP_OBJECTS; ++i)
   {
@@ -268,7 +268,7 @@ void re_print(regex_t* pattern)
       printf(" [");
       for (j = 0; j < MAX_CHAR_CLASS_LEN; ++j)
       {
-        c = pattern[i].u.ccl[j];
+        c = (char)pattern[i].u.ccl[j];
         if ((c == '\0') || (c == ']'))
         {
           break;
