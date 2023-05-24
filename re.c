@@ -521,7 +521,7 @@ static int matchpattern(regex_t* pattern, const char* text, int maxlength, int* 
 */
     (*matchlength)++;
   }
-  while ((maxlength > 0) && (text[0] != '\0') && matchone(*pattern++, *text++));
+  while ((maxlength-- > 0) && (text[0] != '\0') && matchone(*pattern++, *text++));
 
   *matchlength = pre;
   return 0;
